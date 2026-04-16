@@ -455,7 +455,7 @@ async function handleRecap(request, env, url) {
     attempts++;
     try {
       const candidate = await callGemini(prompt, env);
-      if (candidate.length < 60 && attempts < maxAttempts) {
+      if (candidate.length < 300 && attempts < maxAttempts) {
         console.warn(`[recap] Gemini output too short (${candidate.length} chars), retrying...`);
         continue;
       }
@@ -622,13 +622,15 @@ ${detailLines}
 
 WRITING RULES:
 1. Open with winner, loser, and final score in the first sentence.
-2. Describe how the game played out using only the facts above.
+2. Describe how the game played out using the facts above. If no box score detail is available, analyze through margin, conference context, and what the result means for both teams.
 3. If close (margin ≤ 5), say how the winner held on or pulled away.
-4. If an upset, mention seed/ranking difference naturally.
-5. If championship game, treat the stakes with weight.
-6. Do not invent player names, stats, or events not in the facts.
-7. No cliché hype words. No bullet points. One clean paragraph.
-8. End on what the result means: tournament position, rivalry, title clinch, or road win.
+4. If a blowout (margin > 20), reflect what the dominant performance means.
+5. If an upset, mention seed/ranking difference naturally.
+6. If championship game, treat the stakes with weight.
+7. Do not invent player names, stats, or events not in the facts.
+8. No cliché hype words. No bullet points. One clean paragraph.
+9. You MUST write a full paragraph of at least 90 words — a single sentence is not acceptable.
+10. End on what the result means: tournament position, rivalry, title clinch, or road win.
 
 Return only the paragraph.
 `.trim();
@@ -642,7 +644,7 @@ function buildRichFootballPrompt(g, ctx) {
 OFFENSIVE STATS:
 - ${g.winner} passing: ${g.winner_passing_yards || 'N/A'} yds | rushing: ${g.winner_rushing_yards || 'N/A'} yds | turnovers: ${g.winner_turnovers || 0}
 - ${g.loser}  passing: ${g.loser_passing_yards  || 'N/A'} yds | rushing: ${g.loser_rushing_yards  || 'N/A'} yds | turnovers: ${g.loser_turnovers  || 0}
-` : `OFFENSIVE STATS: Not available — describe game shape from score and margin only.`;
+` : `OFFENSIVE STATS: Not available. Use score, margin, conference context, and game significance to fill the paragraph.`;
 
   const winnerLabel = formatTeamLabel(g.winner, ctx.winnerRank, g.winner_seed);
   const loserLabel  = formatTeamLabel(g.loser,  ctx.loserRank,  g.loser_seed);
@@ -666,13 +668,15 @@ ${statsBlock}
 
 WRITING RULES:
 1. Open with winner, loser, and final score in the first sentence.
-2. Describe game shape using stats if available; otherwise use score margin.
+2. Use stats if available. If not, analyze the game through score margin, conference standing, and what the result means for both teams.
 3. Mention turnovers if one team had significantly more.
-4. If close, explain how the winner secured it.
-5. If championship game, reflect the stakes.
-6. Do not invent play-by-play or player names not provided.
-7. No clichés, no hype, no bullet points.
-8. End with what the result means in context.
+4. If close (margin ≤ 5), explain how the winner held on.
+5. If a blowout (margin > 20), reflect on what the dominant performance suggests.
+6. If championship game, reflect the stakes.
+7. Do not invent play-by-play or player names not provided.
+8. No clichés, no hype, no bullet points.
+9. You MUST write a full paragraph of at least 90 words — a single sentence is not acceptable.
+10. End with what the result means in context: standings, rivalry, tournament implications, or road/home significance.
 
 Return only the paragraph.
 `.trim();
