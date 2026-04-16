@@ -1,4 +1,7 @@
+// Updated: April 15, 2026
+
 /**
+ * 
  * HBCUscores.com — Cloudflare Worker
  * Handles: NCAA API proxy, D1 database reads/writes, Gemini AI recaps
  *
