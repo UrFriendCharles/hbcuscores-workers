@@ -121,6 +121,19 @@ export default {
           const results = await cacheGamesInDB(env.DB, normalized);
           totalCached += results.written;
           if (results.errors.length > 0) errors.push(...results.errors);
+
+          // Auto-generate recaps for newly final games
+          if (env.GEMINI_API_KEY) {
+            for (const g of normalized) {
+              const isFinal = /final|complete|F$/i.test(g.status || '');
+              if (!isFinal) continue;
+              try {
+                await autoGenerateRecap(env, g);
+              } catch (e) {
+                errors.push(`recap ${g.game_id}: ${e.message}`);
+              }
+            }
+          }
         }
       } catch (e) {
         errors.push(`${s.sport}/${s.div}: ${e.message}`);
@@ -221,6 +234,7 @@ async function handleGames(request, env, url) {
 
   const conf   = url.searchParams.get('conf');
   const sport  = url.searchParams.get('sport');
+  const school = url.searchParams.get('school');
   const season = url.searchParams.get('season') || '2026';
   const limit  = Math.min(parseInt(url.searchParams.get('limit') || '50', 10), 200);
 
@@ -234,6 +248,10 @@ async function handleGames(request, env, url) {
   if (sport) {
     query += `AND sport = ? `;
     params.push(sport);
+  }
+  if (school) {
+    query += `AND (LOWER(home_team) LIKE ? OR LOWER(away_team) LIKE ?) `;
+    params.push(`%${school.toLowerCase()}%`, `%${school.toLowerCase()}%`);
   }
 
   query += `ORDER BY game_date DESC LIMIT ?`;
@@ -436,36 +454,15 @@ async function handleRecap(request, env, url) {
   while (!recap && attempts < maxAttempts) {
     attempts++;
     try {
-      const geminiRes = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${env.GEMINI_API_KEY}`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { maxOutputTokens: 400, temperature: 0.72 }
-          })
-        }
-      );
-
-      if (!geminiRes.ok) {
-        const errText = await geminiRes.text();
-        console.error(`[recap] Gemini API error (attempt ${attempts}):`, geminiRes.status, errText);
-        if (attempts >= maxAttempts) return json({ error: `Gemini API error: ${geminiRes.status}` }, 502);
-        continue;
-      }
-
-      const geminiData = await geminiRes.json();
-      const candidate = geminiData.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
-
+      const candidate = await callGemini(prompt, env);
       if (candidate.length < 60 && attempts < maxAttempts) {
         console.warn(`[recap] Gemini output too short (${candidate.length} chars), retrying...`);
         continue;
       }
       recap = candidate;
     } catch (e) {
-      console.error(`[recap] Unexpected error (attempt ${attempts}):`, e.message);
-      if (attempts >= maxAttempts) return json({ error: e.message }, 500);
+      console.error(`[recap] Gemini error (attempt ${attempts}):`, e.message);
+      if (attempts >= maxAttempts) return json({ error: e.message }, 502);
     }
   }
 
@@ -483,6 +480,104 @@ async function handleRecap(request, env, url) {
   }
 
   return json({ recap, cached: false });
+}
+
+// ─── GEMINI HELPER ───────────────────────────────────────────────────────────
+
+async function callGemini(prompt, env) {
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${env.GEMINI_API_KEY}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        contents: [{ parts: [{ text: prompt }] }],
+        generationConfig: { maxOutputTokens: 400, temperature: 0.72 }
+      })
+    }
+  );
+  if (!res.ok) {
+    const errText = await res.text();
+    throw new Error(`Gemini ${res.status}: ${errText}`);
+  }
+  const data = await res.json();
+  return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || '';
+}
+
+// Auto-generate recap for a normalized game object (used by cron)
+async function autoGenerateRecap(env, g) {
+  // Determine winner/loser
+  let winner, loser, winner_score, loser_score;
+  if (g.away_winner) {
+    winner = g.away_team;  loser = g.home_team;
+    winner_score = g.away_score; loser_score = g.home_score;
+  } else if (g.home_winner) {
+    winner = g.home_team;  loser = g.away_team;
+    winner_score = g.home_score; loser_score = g.away_score;
+  } else {
+    return; // no winner determined yet
+  }
+
+  if (!winner || !loser) return;
+
+  const cacheKey = [g.sport, g.conference || 'unknown', winner, loser, g.game_date || 'nodate']
+    .join('-').replace(/\s+/g, '-').toLowerCase();
+
+  // Skip if recap already exists
+  const existing = await env.DB.prepare('SELECT id FROM recaps WHERE cache_key = ?')
+    .bind(cacheKey).first();
+  if (existing) return;
+
+  const gameData = {
+    game_id:      g.game_id,
+    sport:        g.sport,
+    conference:   g.conference || '',
+    winner,       loser,
+    winner_score: String(winner_score ?? ''),
+    loser_score:  String(loser_score  ?? ''),
+    date:         g.game_date  || '',
+    venue:        g.venue      || '',
+    network:      g.network    || '',
+    season:       g.season     || '',
+    round:        g.round      || '',
+    gender:       g.sport.includes('women') ? "Women's" : "Men's",
+    away_team:    g.away_team  || '',
+    home_team:    g.home_team  || '',
+    away_score:   String(g.away_score ?? ''),
+    home_score:   String(g.home_score ?? ''),
+  };
+
+  const margin = Math.abs(parseInt(winner_score || 0) - parseInt(loser_score || 0));
+  const ctx = {
+    margin,
+    isUpset:     false,
+    isTight:     margin <= 5,
+    champLike:   /champ|title|final/i.test(g.round || ''),
+    confText:    (g.conference || '').toUpperCase(),
+    roundText:   g.round || 'Regular Season',
+    homeTeam:    g.home_team || '',
+    awayTeam:    g.away_team || '',
+    winnerIsHome: !!g.home_winner,
+    winnerRank:  '', loserRank: '',
+    network:     g.network   || '',
+    venue:       g.venue     || '',
+    date:        g.game_date || '',
+    season:      g.season    || '',
+    ncaaDetail:  null,
+  };
+
+  const prompt = g.sport.includes('football')
+    ? buildRichFootballPrompt(gameData, ctx)
+    : buildRichBasketballPrompt(gameData, ctx);
+
+  const recap = await callGemini(prompt, env);
+  if (!recap || recap.length < 60) return;
+
+  await env.DB.prepare(
+    'INSERT OR REPLACE INTO recaps (cache_key, game_id, recap, created_at) VALUES (?, ?, ?, ?)'
+  ).bind(cacheKey, g.game_id || null, recap, new Date().toISOString()).run();
+
+  console.log(`[cron] Auto-recap: ${g.away_team} vs ${g.home_team} (${g.sport})`);
 }
 
 // ─── PROMPT BUILDERS ─────────────────────────────────────────────────────────

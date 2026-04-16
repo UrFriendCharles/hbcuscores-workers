@@ -19,4 +19,4 @@ jobs:
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ef7445e372456a62bf23391785f274ed
-          command: deploy worker/worker.js --name hbcuscores-api --compatibility-date 2024-01-01
+          command: deploy
