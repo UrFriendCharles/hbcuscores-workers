@@ -5,139 +5,271 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>HBCUscores — HBCU Sports Scores & Standings</title>
   <meta name="description" content="Live scores, standings, and game recaps for HBCU athletics — MEAC, SWAC, CIAA, SIAC." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800;900&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet" />
   <style>
-    /* ─── Base ─────────────────────────────────────────────── */
+    /* ─── Reset & Base ──────────────────────────────────────── */
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
     :root {
-      --bg: #0d0d0d;
-      --surface: #1a1a1a;
-      --border: #2e2e2e;
-      --accent: #c8a84b;
-      --text: #f0f0f0;
-      --muted: #888;
-      --radius: 8px;
-      --font: 'Segoe UI', system-ui, sans-serif;
+      --bg:        #0a0e1a;
+      --surface:   #111827;
+      --surface2:  #1c2539;
+      --border:    #1f2d45;
+      --accent:    #f5c518;
+      --accent2:   #2ecc71;
+      --red:       #e74c3c;
+      --text:      #eef2ff;
+      --muted:     #6b7a9e;
+      --radius:    6px;
+      --font-head: 'Barlow Condensed', 'Impact', sans-serif;
+      --font-body: 'Barlow', system-ui, sans-serif;
     }
 
     body {
       background: var(--bg);
       color: var(--text);
-      font-family: var(--font);
+      font-family: var(--font-body);
       min-height: 100vh;
+      font-size: 15px;
     }
 
     /* ─── Header ───────────────────────────────────────────── */
     header {
       background: var(--surface);
-      border-bottom: 2px solid var(--accent);
-      padding: 1rem 1.5rem;
+      border-bottom: 3px solid var(--accent);
+      padding: 0.75rem 1.25rem 0;
+    }
+
+    .header-top {
       display: flex;
       align-items: center;
       justify-content: space-between;
-      flex-wrap: wrap;
-      gap: 0.75rem;
+      margin-bottom: 0.75rem;
     }
 
     .logo {
-      font-size: 1.5rem;
-      font-weight: 800;
-      letter-spacing: -0.5px;
+      font-family: var(--font-head);
+      font-size: 1.9rem;
+      font-weight: 900;
+      letter-spacing: 0.5px;
       color: var(--accent);
+      text-transform: uppercase;
     }
 
     .logo span { color: var(--text); }
 
-    nav { display: flex; gap: 1rem; flex-wrap: wrap; }
-
-    nav button {
-      background: transparent;
-      border: 1px solid var(--border);
-      color: var(--muted);
-      padding: 0.4rem 0.85rem;
-      border-radius: var(--radius);
-      cursor: pointer;
-      font-size: 0.85rem;
-      transition: all 0.15s;
-    }
-
-    nav button:hover,
-    nav button.active {
-      border-color: var(--accent);
-      color: var(--accent);
-    }
-
-    /* ─── Filters ──────────────────────────────────────────── */
-    .filters {
-      padding: 1rem 1.5rem;
+    /* ─── Tab Rows ─────────────────────────────────────────── */
+    .tab-row {
       display: flex;
-      gap: 0.75rem;
+      gap: 0;
+      overflow-x: auto;
+      scrollbar-width: none;
+    }
+
+    .tab-row::-webkit-scrollbar { display: none; }
+
+    .tab-btn {
+      background: transparent;
+      border: none;
+      color: var(--muted);
+      padding: 0.55rem 1.1rem;
+      cursor: pointer;
+      font-family: var(--font-head);
+      font-size: 0.95rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      border-bottom: 3px solid transparent;
+      margin-bottom: -3px;
+      white-space: nowrap;
+      transition: color 0.15s, border-color 0.15s;
+    }
+
+    .tab-btn:hover { color: var(--text); }
+    .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+    .section-tabs .tab-btn.active { color: var(--text); border-bottom-color: var(--accent2); }
+
+    /* ─── Filters Bar ──────────────────────────────────────── */
+    .filters {
+      padding: 0.6rem 1.25rem;
+      display: flex;
+      gap: 0.5rem;
       flex-wrap: wrap;
       border-bottom: 1px solid var(--border);
+      background: var(--surface);
     }
 
-    .filters select, .filters button {
-      background: var(--surface);
+    .filters select {
+      background: var(--surface2);
       border: 1px solid var(--border);
       color: var(--text);
-      padding: 0.45rem 0.85rem;
+      padding: 0.4rem 0.7rem;
       border-radius: var(--radius);
       cursor: pointer;
-      font-size: 0.875rem;
+      font-family: var(--font-body);
+      font-size: 0.825rem;
+      outline: none;
     }
 
-    .filters button.primary {
-      background: var(--accent);
-      color: #000;
-      border-color: var(--accent);
-      font-weight: 600;
-    }
+    .filters select:focus { border-color: var(--accent); }
 
     /* ─── Main Content ─────────────────────────────────────── */
-    main { padding: 1.5rem; max-width: 1200px; margin: 0 auto; }
+    main { padding: 1.25rem; max-width: 1280px; margin: 0 auto; }
 
-    h2 { font-size: 1.1rem; font-weight: 700; margin-bottom: 1rem; color: var(--accent); }
+    .section-header {
+      font-family: var(--font-head);
+      font-size: 1.1rem;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 1rem;
+    }
+
+    .section-header strong { color: var(--accent); }
 
     /* ─── Scores Grid ──────────────────────────────────────── */
     .scores-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-      gap: 1rem;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+      gap: 0.75rem;
     }
 
+    /* ─── Game Card ────────────────────────────────────────── */
     .game-card {
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: var(--radius);
-      padding: 1rem;
-      transition: border-color 0.15s;
+      padding: 0.85rem 1rem;
+      transition: border-color 0.15s, transform 0.1s;
     }
 
-    .game-card:hover { border-color: var(--accent); }
+    .game-card:hover { border-color: var(--accent); transform: translateY(-1px); }
 
     .game-meta {
-      font-size: 0.75rem;
-      color: var(--muted);
-      margin-bottom: 0.6rem;
-      display: flex;
-      justify-content: space-between;
-    }
-
-    .teams { display: flex; flex-direction: column; gap: 0.4rem; }
-
-    .team-row {
       display: flex;
       justify-content: space-between;
       align-items: center;
+      margin-bottom: 0.65rem;
+      gap: 0.5rem;
     }
 
-    .team-name { font-size: 0.95rem; font-weight: 600; }
+    .game-meta-info {
+      font-size: 0.72rem;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      flex-wrap: wrap;
+    }
+
+    .conf-tag {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 3px;
+      padding: 0.1rem 0.4rem;
+      font-family: var(--font-head);
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      color: var(--muted);
+    }
+
+    /* ─── Team Rows ────────────────────────────────────────── */
+    .teams { display: flex; flex-direction: column; gap: 0.35rem; }
+
+    .team-row {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      padding: 0.3rem 0.4rem;
+      border-radius: 4px;
+    }
+
+    .team-row.winner { background: rgba(245, 197, 24, 0.06); }
+
+    .team-logo {
+      width: 32px;
+      height: 32px;
+      flex-shrink: 0;
+      object-fit: contain;
+      border-radius: 4px;
+    }
+
+    .team-logo-fallback {
+      width: 32px;
+      height: 32px;
+      flex-shrink: 0;
+      border-radius: 50%;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-head);
+      font-size: 0.65rem;
+      font-weight: 800;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0px;
+    }
+
+    .team-info { flex: 1; min-width: 0; }
+
+    .team-name {
+      font-family: var(--font-head);
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      color: var(--text);
+    }
+
     .team-name.winner { color: var(--accent); }
 
-    .team-score { font-size: 1.1rem; font-weight: 700; }
+    .team-record {
+      font-size: 0.68rem;
+      color: var(--muted);
+      margin-top: 1px;
+    }
 
+    .team-score {
+      font-family: var(--font-head);
+      font-size: 1.45rem;
+      font-weight: 800;
+      color: var(--muted);
+      min-width: 2.2rem;
+      text-align: right;
+    }
+
+    .team-score.winner { color: var(--accent); }
+
+    /* ─── Status Badges ────────────────────────────────────── */
+    .badge {
+      font-family: var(--font-head);
+      font-size: 0.7rem;
+      font-weight: 800;
+      padding: 0.2rem 0.5rem;
+      border-radius: 3px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      white-space: nowrap;
+    }
+
+    .badge.live    { background: var(--red); color: #fff; animation: pulse 1.5s ease-in-out infinite; }
+    .badge.final   { background: var(--surface2); color: var(--muted); border: 1px solid var(--border); }
+    .badge.scheduled { background: #1a2a4a; color: #7eb8f7; }
+
+    @keyframes pulse { 0%,100% { opacity:1; } 50% { opacity:0.7; } }
+
+    /* ─── Recap ────────────────────────────────────────────── */
     .recap-btn {
-      margin-top: 0.75rem;
+      margin-top: 0.65rem;
       width: 100%;
       background: transparent;
       border: 1px solid var(--border);
@@ -145,74 +277,136 @@
       padding: 0.35rem;
       border-radius: var(--radius);
       cursor: pointer;
+      font-family: var(--font-head);
       font-size: 0.8rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-transform: uppercase;
       transition: all 0.15s;
     }
 
-    .recap-btn:hover { border-color: var(--accent); color: var(--accent); }
+    .recap-btn:hover:not(:disabled) { border-color: var(--accent); color: var(--accent); }
+    .recap-btn:disabled { opacity: 0.5; cursor: default; }
 
     .recap-text {
-      margin-top: 0.75rem;
+      margin-top: 0.65rem;
       font-size: 0.82rem;
-      line-height: 1.55;
-      color: #ccc;
+      line-height: 1.6;
+      color: #c5cce8;
       border-top: 1px solid var(--border);
-      padding-top: 0.75rem;
+      padding-top: 0.65rem;
     }
 
-    /* ─── Status Badges ────────────────────────────────────── */
-    .badge {
-      font-size: 0.7rem;
-      padding: 0.2rem 0.5rem;
-      border-radius: 4px;
-      font-weight: 700;
-      text-transform: uppercase;
-    }
-    .badge.live    { background: #c0392b; color: #fff; }
-    .badge.final   { background: #2e2e2e; color: #888; }
-    .badge.upcoming { background: #1a3a5c; color: #7eb8f7; }
-
-    /* ─── Standings Table ──────────────────────────────────── */
+    /* ─── Standings ────────────────────────────────────────── */
     .standings-wrap { overflow-x: auto; }
 
     table {
       width: 100%;
       border-collapse: collapse;
-      font-size: 0.875rem;
+      font-size: 0.85rem;
     }
 
     thead th {
       text-align: left;
-      padding: 0.6rem 0.75rem;
+      padding: 0.55rem 0.75rem;
       border-bottom: 2px solid var(--accent);
       color: var(--muted);
-      font-weight: 600;
+      font-family: var(--font-head);
+      font-weight: 700;
       font-size: 0.75rem;
       text-transform: uppercase;
       letter-spacing: 0.05em;
+      white-space: nowrap;
     }
 
     tbody tr { border-bottom: 1px solid var(--border); }
-    tbody tr:hover { background: rgba(255,255,255,0.03); }
+    tbody tr:hover { background: rgba(255,255,255,0.02); }
+    tbody td { padding: 0.55rem 0.75rem; vertical-align: middle; }
 
-    tbody td { padding: 0.6rem 0.75rem; }
-
-    .conf-label {
-      font-size: 0.75rem;
-      color: var(--muted);
-      margin-bottom: 0.5rem;
+    .standings-school {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
     }
+
+    .standings-logo {
+      width: 24px;
+      height: 24px;
+      object-fit: contain;
+      border-radius: 3px;
+    }
+
+    .standings-logo-fallback {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      background: var(--surface2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-head);
+      font-size: 0.55rem;
+      font-weight: 800;
+      color: var(--muted);
+    }
+
+    /* ─── Brackets ─────────────────────────────────────────── */
+    .brackets-list { display: flex; flex-direction: column; gap: 0.75rem; }
+
+    .bracket-item {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+    }
+
+    .bracket-conf {
+      font-family: var(--font-head);
+      font-size: 1.1rem;
+      font-weight: 800;
+      letter-spacing: 0.5px;
+      color: var(--text);
+    }
+
+    .bracket-meta { font-size: 0.8rem; color: var(--muted); margin-top: 0.2rem; }
+
+    .bracket-champion {
+      font-family: var(--font-head);
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--accent);
+    }
+
+    .bracket-status {
+      font-family: var(--font-head);
+      font-size: 0.7rem;
+      font-weight: 800;
+      padding: 0.2rem 0.6rem;
+      border-radius: 3px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .bracket-status.live     { background: var(--red); color: #fff; }
+    .bracket-status.final    { background: #1a3a1a; color: var(--accent2); }
+    .bracket-status.archived { background: var(--surface2); color: var(--muted); border: 1px solid var(--border); }
 
     /* ─── Loading / Empty States ───────────────────────────── */
     .empty {
       text-align: center;
       padding: 3rem 1rem;
       color: var(--muted);
+      font-size: 0.9rem;
     }
 
     .spinner {
       display: inline-block;
-      width: 20px; height: 20px;
+      width: 22px; height: 22px;
       border: 2px solid var(--border);
       border-top-color: var(--accent);
       border-radius: 50%;
@@ -226,43 +420,58 @@
       text-align: center;
       padding: 2rem 1rem;
       color: var(--muted);
-      font-size: 0.8rem;
+      font-size: 0.78rem;
       border-top: 1px solid var(--border);
       margin-top: 2rem;
     }
 
     footer a { color: var(--accent); text-decoration: none; }
+
+    /* ─── Responsive ───────────────────────────────────────── */
+    @media (max-width: 600px) {
+      .scores-grid { grid-template-columns: 1fr; }
+      .tab-btn { padding: 0.5rem 0.75rem; font-size: 0.85rem; }
+      main { padding: 0.85rem; }
+    }
   </style>
 </head>
 <body>
 
 <header>
-  <div class="logo">HBCU<span>scores</span></div>
-  <nav>
-    <button class="active" onclick="setView('scores', this)">Scores</button>
-    <button onclick="setView('standings', this)">Standings</button>
-    <button onclick="setView('brackets', this)">Brackets</button>
-  </nav>
+  <div class="header-top">
+    <div class="logo">HBCU<span>scores</span></div>
+  </div>
+
+  <!-- Sport tabs -->
+  <div class="tab-row" id="sportTabs">
+    <button class="tab-btn active" data-sport="latest" onclick="setSport(this)">Latest</button>
+    <button class="tab-btn" data-sport="fb"  onclick="setSport(this)">Football</button>
+    <button class="tab-btn" data-sport="mbb" onclick="setSport(this)">Men's Basketball</button>
+    <button class="tab-btn" data-sport="wbb" onclick="setSport(this)">Women's Basketball</button>
+  </div>
+
+  <!-- Section tabs -->
+  <div class="tab-row section-tabs" id="sectionTabs">
+    <button class="tab-btn active" data-section="scores"    onclick="setSection(this)">Scores</button>
+    <button class="tab-btn"        data-section="standings" onclick="setSection(this)">Standings</button>
+    <button class="tab-btn"        data-section="brackets"  onclick="setSection(this)">Brackets</button>
+    <button class="tab-btn"        data-section="teams"     onclick="setSection(this)">Teams</button>
+  </div>
 </header>
 
-<div class="filters">
-  <select id="sportSelect" onchange="loadData()">
-    <option value="basketball-men">Men's Basketball</option>
-    <option value="basketball-women">Women's Basketball</option>
-    <option value="football">Football</option>
-  </select>
+<div class="filters" id="filterBar">
   <select id="confSelect" onchange="loadData()">
-    <option value="">All Conferences</option>
-    <option value="meac">MEAC</option>
-    <option value="swac">SWAC</option>
-    <option value="ciaa">CIAA</option>
-    <option value="siac">SIAC</option>
+    <option value="all">All Conferences</option>
+    <option value="MEAC">MEAC</option>
+    <option value="SWAC">SWAC</option>
+    <option value="CIAA">CIAA</option>
+    <option value="SIAC">SIAC</option>
   </select>
   <select id="divSelect" onchange="loadData()">
-    <option value="d1">Division I</option>
-    <option value="d2">Division II</option>
+    <option value="all">All Divisions</option>
+    <option value="D1">Division I</option>
+    <option value="D2">Division II</option>
   </select>
-  <button class="primary" onclick="loadData()">Refresh</button>
 </div>
 
 <main id="mainContent">
@@ -271,150 +480,141 @@
 
 <footer>
   &copy; 2026 <a href="https://hbcuscores.com">hbcuscores.com</a> — Celebrating HBCU Athletics
-  <br><small>Scores via NCAA API · AI recaps by Gemini · Powered by Cloudflare Workers</small>
+  <br><small>Scores via NCAA API &middot; AI recaps by Claude &middot; Powered by Cloudflare Workers</small>
 </footer>
 
 <script>
-  // ─── Config ────────────────────────────────────────────────────────────────
-  // Worker URL — update this if your worker subdomain changes
   const API_BASE = 'https://hbcuscores-api.urfriendcharles.workers.dev';
 
-  let currentView = 'scores';
+  let currentSport   = 'latest';
+  let currentSection = 'scores';
 
-  // ─── View Switcher ──────────────────────────────────────────────────────────
-  function setView(view, btn) {
-    currentView = view;
-    document.querySelectorAll('nav button').forEach(b => b.classList.remove('active'));
+  // ─── Tab Setters ───────────────────────────────────────────────────────────
+  function setSport(btn) {
+    document.querySelectorAll('#sportTabs .tab-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
+    currentSport = btn.dataset.sport;
     loadData();
   }
 
-  // ─── Main Data Loader ───────────────────────────────────────────────────────
-  async function loadData() {
-    const sport = document.getElementById('sportSelect').value;
-    const conf  = document.getElementById('confSelect').value;
-    const div   = document.getElementById('divSelect').value;
-    const main  = document.getElementById('mainContent');
+  function setSection(btn) {
+    document.querySelectorAll('#sectionTabs .tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    currentSection = btn.dataset.section;
+    loadData();
+  }
 
+  // ─── Main Loader ──────────────────────────────────────────────────────────
+  async function loadData() {
+    const conf = document.getElementById('confSelect').value;
+    const div  = document.getElementById('divSelect').value;
+    const main = document.getElementById('mainContent');
     main.innerHTML = '<div class="empty"><span class="spinner"></span></div>';
 
     try {
-      if (currentView === 'scores') {
-        await loadScores(main, sport, conf, div);
-      } else if (currentView === 'standings') {
-        await loadStandings(main, sport, div);
-      } else {
-        main.innerHTML = '<div class="empty">Bracket view coming soon.</div>';
-      }
+      if (currentSection === 'scores')    await loadScores(main, conf, div);
+      else if (currentSection === 'standings') await loadStandings(main, conf);
+      else if (currentSection === 'brackets')  await loadBrackets(main);
+      else if (currentSection === 'teams')     await loadTeams(main, conf, div);
     } catch (err) {
-      main.innerHTML = `<div class="empty">Failed to load data.<br><small>${err.message}</small></div>`;
+      main.innerHTML = `<div class="empty">Failed to load data.<br><small>${esc(err.message)}</small></div>`;
     }
   }
 
-  // ─── Scores ─────────────────────────────────────────────────────────────────
-  async function loadScores(main, sport, conf, div) {
-    const params = new URLSearchParams({ sport, div });
+  // ─── Scores ───────────────────────────────────────────────────────────────
+  async function loadScores(main, conf, div) {
+    const params = new URLSearchParams();
+    if (currentSport !== 'latest') params.set('sport', currentSport);
+    if (conf !== 'all') params.set('conference', conf);
+    if (div  !== 'all') params.set('division', div);
+
     const res  = await fetch(`${API_BASE}/api/scores?${params}`);
     const data = await res.json();
-
-    let games = data.games || [];
-    if (conf) games = games.filter(g =>
-      (g.conference || '').toLowerCase() === conf
-    );
+    const games = data.games || [];
 
     if (games.length === 0) {
       main.innerHTML = '<div class="empty">No games found for the selected filters.</div>';
       return;
     }
 
-    const html = `
-      <h2>${games.length} Game${games.length !== 1 ? 's' : ''} · ${formatSport(sport)}</h2>
-      <div class="scores-grid">
-        ${games.map(g => renderGameCard(g)).join('')}
-      </div>
+    main.innerHTML = `
+      <p class="section-header"><strong>${games.length}</strong> Game${games.length !== 1 ? 's' : ''} &mdash; ${sportLabel(currentSport)}</p>
+      <div class="scores-grid">${games.map(renderGameCard).join('')}</div>
     `;
-    main.innerHTML = html;
   }
 
   function renderGameCard(g) {
-    const awayWon = g.away_winner;
-    const homeWon = g.home_winner;
-    const isFinal = /final|F$/i.test(g.status || '');
-    const isLive  = /progress|live|[1-2]H|OT/i.test(g.status || '');
+    const status   = (g.status || '').toLowerCase();
+    const isFinal  = status === 'final';
+    const isLive   = status === 'live';
 
-    const badge = isFinal
-      ? '<span class="badge final">Final</span>'
-      : isLive
-        ? '<span class="badge live">Live</span>'
-        : '<span class="badge upcoming">Upcoming</span>';
+    const badge = isFinal  ? '<span class="badge final">Final</span>'
+                : isLive   ? '<span class="badge live">Live</span>'
+                           : '<span class="badge scheduled">Upcoming</span>';
 
-    const gameId = g.game_id || '';
-    const sport  = document.getElementById('sportSelect').value;
+    const away = g.away || {};
+    const home = g.home || {};
+
+    const conf = g.conference ? `<span class="conf-tag">${esc(g.conference)}</span>` : '';
+    const dateStr = g.start_time ? fmtDate(g.start_time) : '';
 
     return `
       <div class="game-card">
         <div class="game-meta">
-          <span>${g.game_date || ''} ${g.game_time || ''}</span>
+          <div class="game-meta-info">${conf}${dateStr ? `<span>${esc(dateStr)}</span>` : ''}</div>
           ${badge}
         </div>
         <div class="teams">
-          <div class="team-row">
-            <span class="team-name ${awayWon ? 'winner' : ''}">${g.away_team || 'Away'}</span>
-            <span class="team-score">${g.away_score ?? '—'}</span>
-          </div>
-          <div class="team-row">
-            <span class="team-name ${homeWon ? 'winner' : ''}">${g.home_team || 'Home'}</span>
-            <span class="team-score">${g.home_score ?? '—'}</span>
-          </div>
+          ${renderTeamRow(away, isFinal)}
+          ${renderTeamRow(home, isFinal)}
         </div>
-        ${isFinal && gameId ? `
-          <button class="recap-btn" onclick="loadRecap(this, '${gameId}', '${escHtml(g)}', '${sport}')">
-            ✦ AI Recap
-          </button>
-          <div class="recap-text" id="recap-${gameId}" style="display:none"></div>
+        ${isFinal && g.has_recap ? `
+          <button class="recap-btn" onclick="toggleRecap(this,'${esc(g.id)}')">&#10022; AI Recap</button>
+          <div class="recap-text" id="recap-${esc(g.id)}" style="display:none"></div>
         ` : ''}
       </div>
     `;
   }
 
-  // ─── AI Recap Loader ────────────────────────────────────────────────────────
-  async function loadRecap(btn, gameId, gameJson, sport) {
+  function renderTeamRow(side, isFinal) {
+    const won   = isFinal && side.is_winner;
+    const score = side.score !== null && side.score !== undefined ? side.score : '&mdash;';
+    const name  = side.display_name || 'TBD';
+    const logo  = side.logo_url;
+    const initials = getInitials(name);
+
+    const logoEl = logo
+      ? `<img class="team-logo" src="${esc(logo)}" alt="${esc(name)}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
+        + `<div class="team-logo-fallback" style="display:none">${esc(initials)}</div>`
+      : `<div class="team-logo-fallback">${esc(initials)}</div>`;
+
+    return `
+      <div class="team-row${won ? ' winner' : ''}">
+        ${logoEl}
+        <div class="team-info">
+          <div class="team-name${won ? ' winner' : ''}">${esc(name)}</div>
+          ${side.record ? `<div class="team-record">${esc(side.record)}</div>` : ''}
+        </div>
+        <div class="team-score${won ? ' winner' : ''}">${score}</div>
+      </div>
+    `;
+  }
+
+  // ─── Recap ────────────────────────────────────────────────────────────────
+  async function toggleRecap(btn, gameId) {
     const recapDiv = document.getElementById(`recap-${gameId}`);
     if (recapDiv.style.display !== 'none') {
       recapDiv.style.display = 'none';
       btn.textContent = '✦ AI Recap';
       return;
     }
-
     btn.textContent = 'Loading…';
     btn.disabled = true;
-
     try {
-      // Determine winner/loser from scores
-      const g     = JSON.parse(decodeURIComponent(gameJson));
-      const awayW = g.away_winner;
-      const winner = awayW ? g.away_team : g.home_team;
-      const loser  = awayW ? g.home_team : g.away_team;
-      const ws     = awayW ? g.away_score : g.home_score;
-      const ls     = awayW ? g.home_score : g.away_score;
-
-      const params = new URLSearchParams({
-        game_id: gameId,
-        sport,
-        winner: winner || '',
-        loser:  loser  || '',
-        winner_score: String(ws ?? ''),
-        loser_score:  String(ls ?? ''),
-        status: g.status || 'Final',
-        conference: g.conference || '',
-        date: g.game_date || '',
-      });
-
-      const res  = await fetch(`${API_BASE}/api/recap?${params}`);
+      const res  = await fetch(`${API_BASE}/api/recap/${encodeURIComponent(gameId)}`);
       const data = await res.json();
-
-      if (data.recap) {
-        recapDiv.textContent = data.recap;
+      if (data.text) {
+        recapDiv.textContent = data.text;
         recapDiv.style.display = 'block';
         btn.textContent = '▲ Hide Recap';
       } else {
@@ -427,34 +627,171 @@
     }
   }
 
-  // ─── Standings ──────────────────────────────────────────────────────────────
-  async function loadStandings(main, sport, div) {
-    const params = new URLSearchParams({ sport, div });
+  // ─── Standings ────────────────────────────────────────────────────────────
+  async function loadStandings(main, conf) {
+    if (currentSport === 'latest') {
+      main.innerHTML = '<div class="empty">Select a sport to view standings.</div>';
+      return;
+    }
+    const params = new URLSearchParams({ sport: currentSport });
+    if (conf !== 'all') params.set('conference', conf);
+
     const res  = await fetch(`${API_BASE}/api/standings?${params}`);
     const data = await res.json();
+    const rows = data.standings || [];
+
+    if (rows.length === 0) {
+      main.innerHTML = `
+        <p class="section-header"><strong>Standings</strong> &mdash; ${sportLabel(currentSport)}</p>
+        <div class="empty">Standings will be available during the season.</div>
+      `;
+      return;
+    }
+
+    const tableRows = rows.map(r => {
+      const initials = getInitials(r.display_name || r.school_slug || '');
+      const logoEl = r.logo_url
+        ? `<img class="standings-logo" src="${esc(r.logo_url)}" alt="${esc(r.display_name || '')}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">`
+          + `<div class="standings-logo-fallback" style="display:none">${esc(initials)}</div>`
+        : `<div class="standings-logo-fallback">${esc(initials)}</div>`;
+      return `
+        <tr>
+          <td>
+            <div class="standings-school">
+              ${logoEl}
+              <span>${esc(r.display_name || r.school_slug || '')}</span>
+            </div>
+          </td>
+          <td>${esc(r.conf_w ?? '–')}–${esc(r.conf_l ?? '–')}</td>
+          <td>${esc(r.overall_w ?? '–')}–${esc(r.overall_l ?? '–')}</td>
+        </tr>
+      `;
+    }).join('');
 
     main.innerHTML = `
-      <h2>Standings · ${formatSport(sport)}</h2>
+      <p class="section-header"><strong>Standings</strong> &mdash; ${sportLabel(currentSport)}</p>
       <div class="standings-wrap">
-        <div class="empty">Standings data available — connect conference data feed to populate table.</div>
+        <table>
+          <thead>
+            <tr>
+              <th>School</th>
+              <th>Conf W-L</th>
+              <th>Overall W-L</th>
+            </tr>
+          </thead>
+          <tbody>${tableRows}</tbody>
+        </table>
       </div>
     `;
   }
 
-  // ─── Helpers ────────────────────────────────────────────────────────────────
-  function formatSport(s) {
-    return {
-      'basketball-men':   "Men's Basketball",
-      'basketball-women': "Women's Basketball",
-      'football':         'Football',
-    }[s] || s;
+  // ─── Brackets ─────────────────────────────────────────────────────────────
+  async function loadBrackets(main) {
+    const params = new URLSearchParams();
+    if (currentSport !== 'latest') params.set('sport', currentSport);
+
+    const res  = await fetch(`${API_BASE}/api/brackets?${params}`);
+    const data = await res.json();
+    const brackets = data.brackets || [];
+
+    if (brackets.length === 0) {
+      main.innerHTML = `
+        <p class="section-header"><strong>Brackets</strong></p>
+        <div class="empty">No active brackets. Check back during tournament season.</div>
+      `;
+      return;
+    }
+
+    const items = brackets.map(b => {
+      const statusCls = (b.status || 'archived').toLowerCase();
+      const statusLabel = b.status === 'live' ? 'Live' : b.status === 'final' ? 'Final' : 'Archived';
+      return `
+        <div class="bracket-item">
+          <div>
+            <div class="bracket-conf">${esc(b.conference || '')} ${esc(b.sport || '')}</div>
+            <div class="bracket-meta">${esc(b.season || '')}</div>
+            ${b.champion_name ? `<div class="bracket-champion">Champion: ${esc(b.champion_name)}</div>` : ''}
+          </div>
+          <span class="bracket-status ${statusCls}">${statusLabel}</span>
+        </div>
+      `;
+    }).join('');
+
+    main.innerHTML = `
+      <p class="section-header"><strong>Brackets</strong> &mdash; ${sportLabel(currentSport)}</p>
+      <div class="brackets-list">${items}</div>
+    `;
   }
 
-  function escHtml(g) {
-    return encodeURIComponent(JSON.stringify(g));
+  // ─── Teams ────────────────────────────────────────────────────────────────
+  async function loadTeams(main, conf, div) {
+    const params = new URLSearchParams({ hbcu_only: '1' });
+    if (conf !== 'all') params.set('conference', conf);
+    if (div  !== 'all') params.set('division', div);
+
+    const res  = await fetch(`${API_BASE}/api/schools?${params}`);
+    const data = await res.json();
+    const schools = data.schools || [];
+
+    if (schools.length === 0) {
+      main.innerHTML = '<div class="empty">No schools found.</div>';
+      return;
+    }
+
+    const items = schools.map(s => {
+      const initials = getInitials(s.display_name || s.slug || '');
+      const logoEl = s.logo_url
+        ? `<img class="team-logo" src="${esc(s.logo_url)}" alt="${esc(s.display_name || '')}" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">` +
+          `<div class="team-logo-fallback" style="display:none">${esc(initials)}</div>`
+        : `<div class="team-logo-fallback">${esc(initials)}</div>`;
+      return `
+        <div class="game-card" style="display:flex;align-items:center;gap:0.75rem">
+          ${logoEl}
+          <div>
+            <div style="font-family:var(--font-head);font-weight:700;font-size:1rem">${esc(s.display_name || s.slug || '')}</div>
+            <div style="font-size:0.75rem;color:var(--muted)">${esc(s.conference_name || '')} &middot; ${esc(s.division || '')}</div>
+          </div>
+        </div>
+      `;
+    }).join('');
+
+    main.innerHTML = `
+      <p class="section-header"><strong>${schools.length}</strong> Teams</p>
+      <div class="scores-grid">${items}</div>
+    `;
   }
 
-  // ─── Init ───────────────────────────────────────────────────────────────────
+  // ─── Helpers ──────────────────────────────────────────────────────────────
+  function sportLabel(s) {
+    return { latest: 'All Sports', fb: 'Football', mbb: "Men's Basketball", wbb: "Women's Basketball" }[s] || s;
+  }
+
+  function getInitials(name) {
+    if (!name) return '?';
+    const words = name.trim().split(/\s+/);
+    if (words.length === 1) return words[0].slice(0, 2).toUpperCase();
+    return (words[0][0] + words[words.length - 1][0]).toUpperCase();
+  }
+
+  function fmtDate(iso) {
+    if (!iso) return '';
+    try {
+      const d = new Date(iso);
+      return d.toLocaleDateString('en-US', { month: 'short', day: 'numeric', timeZone: 'UTC' });
+    } catch (_) { return iso.slice(0, 10); }
+  }
+
+  function esc(v) {
+    if (v === null || v === undefined) return '';
+    return String(v)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  // ─── Init ─────────────────────────────────────────────────────────────────
   loadData();
 </script>
 
