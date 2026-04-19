@@ -8,13 +8,8 @@
  *
  * Public API:
  *   generateRecapWithClaude(env, summary)  -> { text, model, usage }
- *   getCachedRecap(db, game_id)             -> string | null
+ *   getCachedRecap(db, game_id)             -> { text, model } | null
  *   cacheRecap(db, game_id, text, model)    -> void
- *
- * Provider-swap friendly: the main handler calls
- * generateRecapWithClaude; swapping providers later means writing a
- * parallel generateRecapWithX that returns the same { text, model, usage }
- * shape. Nothing else has to change.
  */
 
 import { SYSTEM_PROMPT, buildUserPrompt } from './prompts.js';
@@ -100,24 +95,37 @@ function backoff(attempt) {
   return new Promise(r => setTimeout(r, ms));
 }
 
+/**
+ * Returns { text, model } or null if no recap found.
+ * Checks `text` column first, falls back to legacy `recap` column.
+ */
 export async function getCachedRecap(db, game_id) {
   const row = await db
-    .prepare('SELECT text FROM recaps WHERE game_id = ? LIMIT 1')
+    .prepare('SELECT text, recap, model FROM recaps WHERE cache_key = ? LIMIT 1')
     .bind(String(game_id))
     .first();
-  return row?.text || null;
+  if (!row) return null;
+  const text = row.text || row.recap || null;
+  if (!text) return null;
+  return { text, model: row.model || null };
 }
 
+/**
+ * Stores recap using game_id as cache_key.
+ * Writes to both `text` and legacy `recap` columns to satisfy NOT NULL constraint.
+ */
 export async function cacheRecap(db, game_id, text, model) {
   await db
     .prepare(`
-      INSERT INTO recaps (game_id, text, model, created_at)
-      VALUES (?, ?, ?, CURRENT_TIMESTAMP)
-      ON CONFLICT(game_id) DO UPDATE SET
+      INSERT INTO recaps (cache_key, game_id, recap, text, model, created_at)
+      VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+      ON CONFLICT(cache_key) DO UPDATE SET
+        game_id = excluded.game_id,
+        recap = excluded.recap,
         text = excluded.text,
         model = excluded.model,
         created_at = excluded.created_at
     `)
-    .bind(String(game_id), text, model)
+    .bind(String(game_id), String(game_id), text, text, model)
     .run();
 }

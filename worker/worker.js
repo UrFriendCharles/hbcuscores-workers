@@ -12,12 +12,12 @@
  *   GET  /api/healthz
  *
  * Scheduled:
- *   Fires every 5 minutes. Uses scheduler.planTick() to decide
+ *   Fires every 15 minutes. Uses scheduler.planTick() to decide
  *   whether to actually pull upstream data based on the current mode.
  */
 
 import { normalizeGame } from './lib/normalize.js';
-import { schoolsInScope, isHBCUGame } from './lib/schools.js';
+import { schoolsInScope, isHBCUGame, resolveSchool } from './lib/schools.js';
 import { planTick } from './lib/scheduler.js';
 import {
   generateRecapWithClaude,
@@ -94,14 +94,16 @@ async function handleScores(req, env) {
     binds.push(school, school);
   }
   if (date) {
-    where.push('DATE(start_time) = DATE(?)');
+    where.push('game_date = ?');
     binds.push(date);
   }
 
   const sql = `
-    SELECT * FROM games
+    SELECT games.*,
+      (CASE WHEN EXISTS(SELECT 1 FROM recaps r WHERE r.cache_key = games.game_id) THEN 1 ELSE 0 END) AS has_recap
+    FROM games
     WHERE ${where.join(' AND ')}
-    ORDER BY start_time DESC
+    ORDER BY game_date DESC, game_time DESC
     LIMIT 200
   `;
 
@@ -149,7 +151,7 @@ async function handleStandings(req, env) {
     });
   } catch (err) {
     return json({
-      meta: { sport, conference: conference || 'all', count: 0, note: 'standings unavailable' },
+      meta: { sport, conference: conference || 'all', count: 0, note: 'standings not yet available' },
       standings: [],
     });
   }
@@ -161,24 +163,28 @@ async function handleBrackets(req, env) {
   const season = q(url, 'season');
   const where = [];
   const binds = [];
-  if (sport) { where.push('sport = ?'); binds.push(sport); }
-  if (season) { where.push('season = ?'); binds.push(season); }
+  if (sport) { where.push('b.sport = ?'); binds.push(sport); }
+  if (season) { where.push('b.season = ?'); binds.push(season); }
 
-  const sql = `
-    SELECT b.*, c.champion_school_slug, c.runner_up_school_slug
-    FROM brackets b
-    LEFT JOIN champions c
-      ON c.sport = b.sport AND c.season = b.season AND c.conference = b.conference
-    ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
-    ORDER BY season DESC, conference
-  `;
-  const res = await env.DB.prepare(sql).bind(...binds).all();
-  const todayYear = new Date().getUTCFullYear();
-  const brackets = (res.results || []).map(b => {
-    const status = b.status || (b.champion_school_slug ? 'final' : (Number((b.season || '').slice(0, 4)) < todayYear ? 'archived' : 'live'));
-    return { ...b, status };
-  });
-  return json({ meta: { sport, season, count: brackets.length }, brackets });
+  try {
+    const sql = `
+      SELECT b.*, c.champion AS champion_name
+      FROM brackets b
+      LEFT JOIN champions c
+        ON c.sport = b.sport AND c.season = b.season AND c.conference = b.conference
+      ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
+      ORDER BY b.season DESC, b.conference
+    `;
+    const res = await env.DB.prepare(sql).bind(...binds).all();
+    const todayYear = new Date().getUTCFullYear();
+    const brackets = (res.results || []).map(b => {
+      const status = b.status || (b.champion_name ? 'final' : (Number((b.season || '').slice(0, 4)) < todayYear ? 'archived' : 'live'));
+      return { ...b, status };
+    });
+    return json({ meta: { sport, season, count: brackets.length }, brackets });
+  } catch (err) {
+    return json({ meta: { sport, season, count: 0, note: 'brackets not yet available' }, brackets: [] });
+  }
 }
 
 async function handleSchools(req, env) {
@@ -196,11 +202,11 @@ async function handleSchools(req, env) {
 async function handleRecapGet(req, env, game_id) {
   const cached = await getCachedRecap(env.DB, game_id);
   if (!cached) return notFound('no recap available');
-  return json({ game_id, text: cached, source: 'cache' });
+  return json({ game_id, text: cached.text, model: cached.model || null, source: 'cache' });
 }
 
 async function handleRecapPost(req, env, game_id) {
-  const game = await env.DB.prepare('SELECT * FROM games WHERE id = ?').bind(String(game_id)).first();
+  const game = await env.DB.prepare('SELECT * FROM games WHERE game_id = ?').bind(String(game_id)).first();
   if (!game) return notFound('unknown game_id');
   if (String(game.status || '').toLowerCase() !== 'final') return badRequest('recap only available for final games');
 
@@ -214,7 +220,7 @@ async function handleRecapPost(req, env, game_id) {
   const url = new URL(req.url);
   if (q(url, 'force') !== '1') {
     const cached = await getCachedRecap(env.DB, game_id);
-    if (cached) return json({ game_id, text: cached, source: 'cache' });
+    if (cached) return json({ game_id, text: cached.text, model: cached.model || null, source: 'cache' });
   }
 
   const summary = buildRecapSummary(normalized, boxScore);
@@ -244,6 +250,7 @@ async function ingestScores(env, sports) {
   for (const sport of sports) {
     const paths = SCOREBOARD_PATHS[sport] || [];
     for (const path of paths) {
+      const division = path.includes('d2') ? 'D2' : 'D1';
       const url = `${base}/scoreboard/${path}/${today}/all-conf`;
       try {
         const res = await fetch(url, { headers: { 'user-agent': 'hbcuscores/2' } });
@@ -251,7 +258,7 @@ async function ingestScores(env, sports) {
         const data = await res.json();
         const rawGames = Array.isArray(data.games) ? data.games : [];
         for (const g of rawGames) {
-          const flat = flattenUpstreamGame(g, sport);
+          const flat = flattenUpstreamGame(g, sport, division);
           if (!(await isHBCUGame(env.DB, flat))) continue;
           await upsertGame(env.DB, flat);
           upserts++;
@@ -264,49 +271,64 @@ async function ingestScores(env, sports) {
   return { upserts };
 }
 
-function flattenUpstreamGame(g, sport) {
+function flattenUpstreamGame(g, sport, division) {
   const home = g.game?.home || g.home || {};
   const away = g.game?.away || g.away || {};
+  const rawDate = g.game?.startDate || g.startDate || g.start_time || '';
+  const gameDate = rawDate ? rawDate.slice(0, 10) : null;
+  const gameTime = rawDate && rawDate.length > 10 ? rawDate.slice(11, 19) || null : null;
+  const year = gameDate ? new Date(gameDate).getUTCFullYear() : new Date().getUTCFullYear();
+  const season = String(year);
+
   return {
-    id: g.game?.gameID || g.game_id || g.id,
+    game_id: String(g.game?.gameID || g.game_id || g.id || ''),
     sport,
+    division: division || 'D1',
+    season,
     status: g.game?.gameState || g.gameState || g.status,
-    start_time: g.game?.startDate || g.startDate || g.start_time,
+    game_date: gameDate,
+    game_time: gameTime,
     conference: g.game?.conferenceName || g.conference || null,
     is_conference_game: !!(g.game?.isConferenceGame ?? g.is_conference_game),
     is_tournament_game: !!(g.game?.bracketId || g.is_tournament_game),
     venue: g.game?.location || g.venue || null,
-    away_team_name: away.names?.short || away.name || away.team_name,
-    home_team_name: home.names?.short || home.name || home.team_name,
-    away_team_full: away.names?.full || away.full_name,
-    home_team_full: home.names?.full || home.full_name,
-    away_team_seo: away.names?.seo || away.seo || away.team_seo,
-    home_team_seo: home.names?.seo || home.seo || home.team_seo,
-    away_score: away.score,
-    home_score: home.score,
-    away_record: away.description || away.record,
-    home_record: home.description || home.record,
+    away_team: away.names?.short || away.name || away.team_name || null,
+    home_team: home.names?.short || home.name || home.team_name || null,
+    away_team_full: away.names?.full || away.full_name || null,
+    home_team_full: home.names?.full || home.full_name || null,
+    away_team_seo: away.names?.seo || away.seo || away.team_seo || null,
+    home_team_seo: home.names?.seo || home.seo || home.team_seo || null,
+    away_score: away.score ?? null,
+    home_score: home.score ?? null,
+    away_record: away.description || away.record || null,
+    home_record: home.description || home.record || null,
   };
 }
 
 async function upsertGame(db, g) {
+  const awaySchool = await resolveSchool(db, g.away_team || g.away_team_full || g.away_team_seo);
+  const homeSchool = await resolveSchool(db, g.home_team || g.home_team_full || g.home_team_seo);
+
   await db.prepare(`
     INSERT INTO games (
-      id, sport, status, start_time, conference,
+      game_id, sport, division, season, status, game_date, game_time, conference,
       is_conference_game, is_tournament_game, venue,
-      away_team_name, home_team_name,
+      away_team, home_team,
       away_team_full, home_team_full,
       away_team_seo, home_team_seo,
       away_score, home_score,
-      away_record, home_record
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    ON CONFLICT(id) DO UPDATE SET
+      away_record, home_record,
+      away_school_slug, home_school_slug,
+      updated_at
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+    ON CONFLICT(game_id) DO UPDATE SET
       status = excluded.status,
-      start_time = excluded.start_time,
+      game_date = excluded.game_date,
+      game_time = excluded.game_time,
       conference = excluded.conference,
       venue = excluded.venue,
-      away_team_name = excluded.away_team_name,
-      home_team_name = excluded.home_team_name,
+      away_team = excluded.away_team,
+      home_team = excluded.home_team,
       away_team_full = excluded.away_team_full,
       home_team_full = excluded.home_team_full,
       away_team_seo = excluded.away_team_seo,
@@ -314,30 +336,35 @@ async function upsertGame(db, g) {
       away_score = excluded.away_score,
       home_score = excluded.home_score,
       away_record = excluded.away_record,
-      home_record = excluded.home_record
+      home_record = excluded.home_record,
+      away_school_slug = excluded.away_school_slug,
+      home_school_slug = excluded.home_school_slug,
+      updated_at = excluded.updated_at
   `).bind(
-    String(g.id), g.sport, g.status, g.start_time, g.conference,
+    g.game_id, g.sport, g.division || 'D1', g.season || String(new Date().getUTCFullYear()),
+    g.status, g.game_date, g.game_time, g.conference,
     g.is_conference_game ? 1 : 0, g.is_tournament_game ? 1 : 0, g.venue,
-    g.away_team_name, g.home_team_name,
+    g.away_team, g.home_team,
     g.away_team_full, g.home_team_full,
     g.away_team_seo, g.home_team_seo,
     g.away_score ?? null, g.home_score ?? null,
-    g.away_record, g.home_record
+    g.away_record, g.home_record,
+    awaySchool?.slug || null, homeSchool?.slug || null
   ).run();
 }
 
 async function autoRecapFinals(env) {
   const today = new Date().toISOString().slice(0, 10);
   const res = await env.DB.prepare(`
-    SELECT g.id FROM games g
-    LEFT JOIN recaps r ON r.game_id = g.id
+    SELECT g.game_id FROM games g
+    LEFT JOIN recaps r ON r.cache_key = g.game_id
     WHERE LOWER(g.status) LIKE '%final%'
-      AND DATE(g.start_time) = DATE(?)
-      AND r.game_id IS NULL
+      AND g.game_date = ?
+      AND r.cache_key IS NULL
     LIMIT 20
   `).bind(today).all();
 
-  const ids = (res.results || []).map(r => r.id);
+  const ids = (res.results || []).map(r => r.game_id);
   for (const id of ids) {
     try {
       const fakeReq = new Request(`https://x/api/recap/${id}`, { method: 'POST' });

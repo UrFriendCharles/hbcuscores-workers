@@ -1,9 +1,8 @@
 /**
  * normalize.js
- * Transforms raw ncaa-api scoreboard entries into our canonical
- * game shape for D1 storage and API responses.
+ * Transforms raw D1 game rows into our canonical API response shape.
  *
- * The API response shape we produce:
+ * Output shape:
  *   {
  *     id, sport, status, status_detail, start_time,
  *     conference, is_conference_game, is_tournament_game,
@@ -24,7 +23,6 @@ const NCAA_LOGO_BASE = 'https://ncaa-api.henrygd.me/logo';
  *   2) upstream team_seo slug from the feed
  *   3) our canonical slug (works well for most HBCUs)
  *   4) null
- * The frontend will render a text-badge fallback if null.
  */
 export function deriveLogoUrl({ schoolRow, team_seo, slug }) {
   if (schoolRow && schoolRow.logo_url) return schoolRow.logo_url;
@@ -35,7 +33,6 @@ export function deriveLogoUrl({ schoolRow, team_seo, slug }) {
 
 /**
  * Map ncaa-api scoreboard game status strings into our 3-state model.
- * Accepts a wide range of upstream values.
  */
 export function normalizeStatus(rawStatus, rawState) {
   const s = String(rawStatus || rawState || '').toLowerCase();
@@ -49,20 +46,22 @@ export function normalizeStatus(rawStatus, rawState) {
 
 /**
  * Produce the per-side (away/home) object for the API response.
+ * Reads both `away_team` (schema column) and `away_team_name` (legacy) for compatibility.
  */
 async function buildSide(db, raw, sideKey) {
-  const name   = raw[`${sideKey}_team_name`] || raw[`${sideKey}_team_full`] || raw[`${sideKey}_team_seo`];
+  // Schema uses `away_team` / `home_team`; legacy upstream flatten used `away_team_name`
+  const name   = raw[`${sideKey}_team`] || raw[`${sideKey}_team_name`] || raw[`${sideKey}_team_full`] || raw[`${sideKey}_team_seo`];
   const seo    = raw[`${sideKey}_team_seo`]  || null;
   const full   = raw[`${sideKey}_team_full`] || null;
   const score  = raw[`${sideKey}_score`];
   const record = raw[`${sideKey}_record`]    || null;
 
   const schoolRow = await resolveSchool(db, name);
-  const slug = schoolRow?.slug || null;
+  const slug = schoolRow?.slug || raw[`${sideKey}_school_slug`] || null;
   const logo_url = deriveLogoUrl({ schoolRow, team_seo: seo, slug });
 
   return {
-    school_slug: slug,
+    school_slug:  slug,
     display_name: schoolRow?.display_name || name || null,
     short_name:   schoolRow?.short_name   || null,
     full_name:    schoolRow?.full_name    || full || null,
@@ -76,11 +75,19 @@ async function buildSide(db, raw, sideKey) {
 }
 
 /**
- * Main entry: turn a raw D1-row-ish or ncaa-api-ish game object into
- * the response shape.
- *
- * Accepts both shapes by reading a union of fields — the worker's
- * fetch + cache paths both pass through this one function.
+ * Construct an ISO start_time string from game_date + game_time columns.
+ * Falls back to any raw start_time/startTime field.
+ */
+function buildStartTime(raw) {
+  if (raw.game_date) {
+    if (raw.game_time) return `${raw.game_date}T${raw.game_time}`;
+    return raw.game_date;
+  }
+  return raw.start_time || raw.startTime || null;
+}
+
+/**
+ * Main entry: turn a D1 game row into the canonical response shape.
  */
 export async function normalizeGame(db, raw) {
   const away = await buildSide(db, raw, 'away');
@@ -95,14 +102,16 @@ export async function normalizeGame(db, raw) {
   }
 
   const { status, detail } = normalizeStatus(raw.status, raw.state);
-  const id = raw.id || raw.game_id || `${raw.sport}:${raw.start_time}:${away.seo || 'a'}-${home.seo || 'h'}`;
+  // Prefer game_id (upstream identity) over id (DB auto-increment row id)
+  const id = raw.game_id || raw.id || `${raw.sport}:${raw.game_date}:${away.seo || 'a'}-${home.seo || 'h'}`;
+  const start_time = buildStartTime(raw);
 
   return {
     id: String(id),
-    sport: raw.sport,                               // 'fb' | 'mbb' | 'wbb'
+    sport: raw.sport,
     status,
     status_detail: detail,
-    start_time: raw.start_time || raw.startTime || null,
+    start_time,
     conference: raw.conference || null,
     is_conference_game: Boolean(raw.is_conference_game),
     is_tournament_game: Boolean(raw.is_tournament_game),
@@ -110,6 +119,6 @@ export async function normalizeGame(db, raw) {
     home,
     venue: raw.venue || null,
     has_recap: Boolean(raw.has_recap),
-    recap_url: raw.has_recap ? `/api/recap/${encodeURIComponent(id)}` : null,
+    recap_url: raw.has_recap ? `/api/recap/${encodeURIComponent(String(id))}` : null,
   };
 }
