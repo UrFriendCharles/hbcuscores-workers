@@ -4,7 +4,7 @@
 
 - Cloudflare account with Workers and D1 enabled
 - [Wrangler CLI](https://developers.cloudflare.com/workers/wrangler/) installed (`npm install -g wrangler`)
-- `GEMINI_API_KEY` from [Google AI Studio](https://aistudio.google.com/)
+- `ANTHROPIC_API_KEY` from [console.anthropic.com](https://console.anthropic.com/)
 
 ---
 
@@ -33,18 +33,26 @@ database_name = "hbcuscores"
 database_id = "<your-database-id>"
 ```
 
-Apply the schema:
+Apply the schema (fresh database):
 
 ```bash
 wrangler d1 execute hbcuscores --file=database/schema.sql
 ```
 
----
-
-## Step 3 — Set the Gemini API Secret
+Or for an existing database, run the numbered migrations in order:
 
 ```bash
-wrangler secret put GEMINI_API_KEY
+wrangler d1 execute hbcuscores --file=database/002_schools_and_linkage.sql
+wrangler d1 execute hbcuscores --file=database/003_seed_schools.sql
+wrangler d1 execute hbcuscores --file=database/004_standings_and_box_scores.sql
+```
+
+---
+
+## Step 3 — Set the Anthropic API Secret
+
+```bash
+wrangler secret put ANTHROPIC_API_KEY
 # Paste your key when prompted — it is never stored in code or git
 ```
 
