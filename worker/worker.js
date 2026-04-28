@@ -242,16 +242,16 @@ async function handleHealth(req, env) {
   }
 }
 
-async function ingestScores(env, sports) {
+async function ingestScores(env, sports, dateSlash) {
   const base = env.UPSTREAM_BASE || DEFAULT_UPSTREAM;
-  const today = new Date().toISOString().slice(0, 10).replace(/-/g, '/');
+  const target = dateSlash || new Date().toISOString().slice(0, 10).replace(/-/g, '/');
   let upserts = 0;
 
   for (const sport of sports) {
     const paths = SCOREBOARD_PATHS[sport] || [];
     for (const path of paths) {
       const division = path.includes('d2') ? 'D2' : 'D1';
-      const url = `${base}/scoreboard/${path}/${today}/all-conf`;
+      const url = `${base}/scoreboard/${path}/${target}/all-conf`;
       try {
         const res = await fetch(url, { headers: { 'user-agent': 'hbcuscores/2' } });
         if (!res.ok) continue;
@@ -269,6 +269,31 @@ async function ingestScores(env, sports) {
     }
   }
   return { upserts };
+}
+
+async function handleBackfill(req, env) {
+  const auth = req.headers.get('Authorization') || '';
+  if (!env.ADMIN_SECRET || auth !== `Bearer ${env.ADMIN_SECRET}`) {
+    return json({ error: 'unauthorized' }, { status: 401 });
+  }
+
+  let body = {};
+  try { body = await req.json(); } catch (_) {}
+
+  const { sport = 'all', date } = body;
+  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return badRequest('body must include date (YYYY-MM-DD)');
+  }
+
+  const VALID_SPORTS = new Set(['fb', 'mbb', 'wbb']);
+  const sports = sport === 'all' ? ['fb', 'mbb', 'wbb'] : [sport];
+  if (sports.some(s => !VALID_SPORTS.has(s))) {
+    return badRequest('sport must be fb, mbb, wbb, or all');
+  }
+
+  const dateSlash = date.replace(/-/g, '/');
+  const { upserts } = await ingestScores(env, sports, dateSlash);
+  return json({ date, sports, upserts });
 }
 
 function flattenUpstreamGame(g, sport, division) {
@@ -396,6 +421,7 @@ export default {
       if (url.pathname === '/api/standings') return handleStandings(req, env);
       if (url.pathname === '/api/brackets') return handleBrackets(req, env);
       if (url.pathname === '/api/schools') return handleSchools(req, env);
+      if (url.pathname === '/api/admin/backfill' && req.method === 'POST') return handleBackfill(req, env);
 
       const recapMatch = url.pathname.match(/^\/api\/recap\/(.+)$/);
       if (recapMatch) {
