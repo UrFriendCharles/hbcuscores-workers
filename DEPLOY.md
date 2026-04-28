@@ -111,6 +111,56 @@ wrangler deploy worker/worker.js
 
 ---
 
+## Backfilling Past Season Scores
+
+Use the admin backfill endpoint to import historical scores into D1. This is how you populate the database with last season's data.
+
+First set your admin secret (pick any strong random string):
+
+```bash
+wrangler secret put ADMIN_SECRET
+```
+
+Then call the backfill endpoint for each date you want to import. `sport` can be `fb`, `mbb`, `wbb`, or `all`:
+
+```bash
+curl -X POST https://hbcuscores-api.<your-subdomain>.workers.dev/api/admin/backfill \
+  -H "Authorization: Bearer <your-ADMIN_SECRET>" \
+  -H "Content-Type: application/json" \
+  -d '{"sport":"mbb","date":"2025-02-15"}'
+```
+
+To backfill an entire season, loop over a date range in your shell:
+
+```bash
+# Basketball season example (Nov 1 2024 – Mar 31 2025)
+START="2024-11-01"
+END="2025-03-31"
+SECRET="<your-ADMIN_SECRET>"
+BASE="https://hbcuscores-api.<your-subdomain>.workers.dev"
+
+d="$START"
+while [ "$d" != "$END" ]; do
+  echo "Backfilling $d..."
+  curl -s -X POST "$BASE/api/admin/backfill" \
+    -H "Authorization: Bearer $SECRET" \
+    -H "Content-Type: application/json" \
+    -d "{\"sport\":\"all\",\"date\":\"$d\"}"
+  echo ""
+  d=$(date -d "$d + 1 day" +%Y-%m-%d)   # Linux; use "date -v+1d" on macOS
+  sleep 0.5
+done
+```
+
+```bash
+# Football season example (Aug 15 2024 – Dec 20 2024)
+START="2024-08-15"
+END="2024-12-20"
+# ... same loop as above
+```
+
+---
+
 ## Updating the D1 Schema
 
 Run new migrations directly against the live database:

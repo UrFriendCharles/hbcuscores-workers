@@ -29,6 +29,19 @@ Option B — Cloudflare Dashboard:
 2. Settings → Variables → Edit Variables
 3. Update `ANTHROPIC_API_KEY` → Save and Deploy
 
+### `ADMIN_SECRET`
+
+- **What it is**: A secret token you choose — used to protect the backfill endpoint
+- **Used for**: `POST /api/admin/backfill` (importing historical scores)
+- **Where to get it**: Generate any strong random string (e.g. `openssl rand -hex 32`)
+
+**To set:**
+
+```bash
+wrangler secret put ADMIN_SECRET
+# Paste your chosen secret when prompted
+```
+
 ### `DB` (D1 Database Binding)
 
 - **What it is**: Binding to the `hbcuscores` D1 database
