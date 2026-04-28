@@ -443,6 +443,7 @@
   </div>
 
   <!-- Sport tabs -->
+
   <div class="tab-row" id="sportTabs">
     <button class="tab-btn active" data-sport="latest" onclick="setSport(this)">Latest</button>
     <button class="tab-btn" data-sport="fb"  onclick="setSport(this)">Football</button>
@@ -451,6 +452,7 @@
   </div>
 
   <!-- Section tabs -->
+
   <div class="tab-row section-tabs" id="sectionTabs">
     <button class="tab-btn active" data-section="scores"    onclick="setSection(this)">Scores</button>
     <button class="tab-btn"        data-section="standings" onclick="setSection(this)">Standings</button>
@@ -484,7 +486,11 @@
 </footer>
 
 <script>
-  const API_BASE = 'https://hbcuscores-api.urfriendcharles.workers.dev';
+  // Use relative URL so it works on hbcuscores.com via the Worker route,
+  // and falls back to the direct workers.dev URL for local testing.
+  const API_BASE = window.location.hostname === 'hbcuscores.com'
+    ? 'https://hbcuscores.com'
+    : 'https://hbcuscores-api.charles-ef7.workers.dev';
 
   let currentSport   = 'latest';
   let currentSection = 'scores';
@@ -512,7 +518,7 @@
     main.innerHTML = '<div class="empty"><span class="spinner"></span></div>';
 
     try {
-      if (currentSection === 'scores')    await loadScores(main, conf, div);
+      if (currentSection === 'scores')         await loadScores(main, conf, div);
       else if (currentSection === 'standings') await loadStandings(main, conf);
       else if (currentSection === 'brackets')  await loadBrackets(main);
       else if (currentSection === 'teams')     await loadTeams(main, conf, div);
@@ -571,6 +577,9 @@
         ${isFinal && g.has_recap ? `
           <button class="recap-btn" onclick="toggleRecap(this,'${esc(g.id)}')">&#10022; AI Recap</button>
           <div class="recap-text" id="recap-${esc(g.id)}" style="display:none"></div>
+        ` : isFinal ? `
+          <button class="recap-btn" onclick="generateRecap(this,'${esc(g.id)}')">&#10022; Generate AI Recap</button>
+          <div class="recap-text" id="recap-${esc(g.id)}" style="display:none"></div>
         ` : ''}
       </div>
     `;
@@ -622,6 +631,28 @@
       }
     } catch (_) {
       btn.textContent = '✦ AI Recap';
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  async function generateRecap(btn, gameId) {
+    const recapDiv = document.getElementById(`recap-${gameId}`);
+    btn.textContent = 'Generating…';
+    btn.disabled = true;
+    try {
+      const res  = await fetch(`${API_BASE}/api/recap/${encodeURIComponent(gameId)}`, { method: 'POST' });
+      const data = await res.json();
+      if (data.text) {
+        recapDiv.textContent = data.text;
+        recapDiv.style.display = 'block';
+        btn.textContent = '▲ Hide Recap';
+        btn.onclick = () => toggleRecap(btn, gameId);
+      } else {
+        btn.textContent = '✦ Generate AI Recap';
+      }
+    } catch (_) {
+      btn.textContent = '✦ Generate AI Recap';
     } finally {
       btn.disabled = false;
     }
