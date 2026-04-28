@@ -10,24 +10,24 @@
 
 These are set directly in the Cloudflare dashboard or via Wrangler CLI and are injected into the Worker at runtime via the `env` object.
 
-### `GEMINI_API_KEY`
+### `ANTHROPIC_API_KEY`
 
-- **What it is**: Your Google AI Studio API key for Gemini 2.5 Flash
+- **What it is**: Your Anthropic API key for Claude Haiku
 - **Used for**: Generating AI game recaps in `/api/recap`
-- **Where to get it**: [https://aistudio.google.com/](https://aistudio.google.com/)
+- **Where to get it**: [https://console.anthropic.com/](https://console.anthropic.com/)
 
 **To update:**
 
 Option A — Wrangler CLI (recommended):
 ```bash
-wrangler secret put GEMINI_API_KEY
+wrangler secret put ANTHROPIC_API_KEY
 # Paste your new key when prompted
 ```
 
 Option B — Cloudflare Dashboard:
 1. Cloudflare Dashboard → Workers & Pages → `hbcuscores-api`
 2. Settings → Variables → Edit Variables
-3. Update `GEMINI_API_KEY` → Save and Deploy
+3. Update `ANTHROPIC_API_KEY` → Save and Deploy
 
 ### `DB` (D1 Database Binding)
 
@@ -60,7 +60,7 @@ Only one GitHub secret is needed to enable auto-deploy:
 
 ## What NOT to Do
 
-- Do NOT put `GEMINI_API_KEY` in `wrangler.toml` as a plain text variable
+- Do NOT put `ANTHROPIC_API_KEY` in `wrangler.toml` as a plain text variable
 - Do NOT commit `.env` files (already in `.gitignore`)
 - Do NOT hardcode any key in `worker.js` — all secrets come from `env.*`
 - Do NOT share API tokens in GitHub Issues or PR comments
@@ -73,5 +73,5 @@ If a key is compromised:
 
 1. Revoke the old key immediately at the provider (Google AI Studio or Cloudflare)
 2. Generate a new key
-3. Update it in Cloudflare using `wrangler secret put <KEY_NAME>` or the dashboard
-4. Verify the Worker is still healthy: `curl .../api/health`
+3. Update it in Cloudflare using `wrangler secret put ANTHROPIC_API_KEY` or the dashboard
+4. Verify the Worker is still healthy: `curl .../api/healthz`

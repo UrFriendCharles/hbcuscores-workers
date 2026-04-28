@@ -4,7 +4,7 @@
 
 - Cloudflare account with Workers and D1 enabled
 - [Wrangler CLI](https://developers.cloudflare.com/workers/wrangler/) installed (`npm install -g wrangler`)
-- `GEMINI_API_KEY` from [Google AI Studio](https://aistudio.google.com/)
+- `ANTHROPIC_API_KEY` from [Anthropic Console](https://console.anthropic.com/)
 
 ---
 
@@ -41,10 +41,10 @@ wrangler d1 execute hbcuscores --file=database/schema.sql
 
 ---
 
-## Step 3 — Set the Gemini API Secret
+## Step 3 — Set the Anthropic API Secret
 
 ```bash
-wrangler secret put GEMINI_API_KEY
+wrangler secret put ANTHROPIC_API_KEY
 # Paste your key when prompted — it is never stored in code or git
 ```
 
